@@ -1,223 +1,309 @@
 # Multi-Gateway Payment API
 
-API RESTful desenvolvida em **Laravel 10** para gerenciamento de pagamentos utilizando múltiplos gateways com fallback automático.
+API RESTful desenvolvida em **Laravel** para gerenciamento de pagamentos utilizando múltiplos gateways.
+O sistema realiza compras, calcula automaticamente o valor com base nos produtos selecionados e tenta processar o pagamento utilizando **dois gateways externos**, respeitando uma ordem de prioridade.
 
-📌 **Níveis implementados:** Nível 1 (completo) e Nível 2 (completo)  
-❌ **Não implementado:** Nível 3 (roles, TDD, Docker Compose)
-
----
-
-## 🛠️ Tecnologias
-
-- PHP 8.2+ / Laravel 10
-- MySQL / Eloquent ORM
-- Laravel HTTP Client
-- Docker (para os mocks dos gateways)
+Caso o primeiro gateway falhe, o sistema automaticamente tenta o segundo gateway.
 
 ---
 
-## 📦 Pré-requisitos
+# Tecnologias Utilizadas
 
-- PHP 8.1+
-- Composer
-- MySQL
-- Docker
-- Git
+* PHP 8+
+* Laravel 10+
+* MySQL
+* Eloquent ORM
+* Docker (para execução dos mocks de gateway)
+* HTTP Client do Laravel
 
 ---
 
-## 🔧 Instalação
+# Funcionalidades Implementadas
 
-```bash
-# Clone o repositório
-git clone https://github.com/seu-usuario/multi-gateway-api.git
-cd multi-gateway-api
+### Compras
 
-# Instale as dependências
-composer install
+* Criação de compras utilizando múltiplos produtos
+* Cálculo automático do valor total no backend
+* Integração com gateways de pagamento externos
+* Fallback automático entre gateways
 
-# Configure o ambiente
-cp .env.example .env
-php artisan key:generate
-Edite o arquivo .env com suas credenciais do banco:
-env
+### Produtos
 
-DB_DATABASE=betalent
-DB_USERNAME=root
-DB_PASSWORD=sua_senha
+* Criação de produtos
+* Definição de preço em centavos
 
-bash
+### Clientes
 
-# Execute as migrations
-php artisan migrate
+* Criação automática do cliente ao realizar uma compra
 
-# Inicie o servidor
-php artisan serve
+### Transações
 
-A API estará disponível em http://localhost:8000
-🐳 Executando os Gateways Mock
-bash
+* Registro da transação no banco de dados
+* Associação de produtos à transação
+* Armazenamento do gateway utilizado
+* Armazenamento dos últimos 4 dígitos do cartão
 
-docker run -p 3001:3001 -p 3002:3002 matheusprotzen/gateways-mock
+---
 
-Gateways disponíveis:
+# Arquitetura do Projeto
 
-    Gateway 1: http://localhost:3001
+A aplicação foi estruturada utilizando uma separação básica de responsabilidades.
 
-    Gateway 2: http://localhost:3002
-
-🏗️ Arquitetura do Projeto
-text
-
+```
 app
-├── Http/Controllers
-│   ├── ProductController.php      # CRUD de produtos
-│   └── TransactionController.php  # Processamento de compras
-├── Models
-│   ├── Client.php
-│   ├── Product.php
-│   ├── Transaction.php
-│   └── TransactionProduct.php
-└── Services
-    └── PaymentService.php          # Lógica de pagamento e fallback
+ ├── Http
+ │   └── Controllers
+ │        ├── ProductController
+ │        └── TransactionController
+ │
+ ├── Models
+ │        ├── Client
+ │        ├── Gateway
+ │        ├── Product
+ │        ├── Transaction
+ │        └── TransactionProduct
+ │
+ └── Services
+          └── PaymentService
+```
 
-📊 Estrutura do Banco de Dados
+### Controllers
 
-clients: id, name, email
-products: id, name, amount (em centavos)
-transactions: id, client_id, gateway, external_id, status, amount, card_last_numbers
-transaction_products: transaction_id, product_id, quantity (tabela pivot)
-🌐 Rotas da API
-📦 Produtos
+Responsáveis por receber requisições HTTP e validar os dados.
 
-Criar produto
-POST /api/products
-json
+### Services
 
+Contém a lógica de negócio principal do sistema, incluindo:
+
+* cálculo do valor da compra
+* integração com gateways
+* fallback entre gateways
+
+### Models
+
+Representam as tabelas do banco de dados utilizando Eloquent ORM.
+
+---
+
+# Estrutura do Banco de Dados
+
+### clients
+
+| campo | descrição                |
+| ----- | ------------------------ |
+| id    | identificador do cliente |
+| name  | nome do cliente          |
+| email | email do cliente         |
+
+---
+
+### products
+
+| campo  | descrição         |
+| ------ | ----------------- |
+| id     | identificador     |
+| name   | nome do produto   |
+| amount | valor em centavos |
+
+---
+
+### transactions
+
+| campo             | descrição                   |
+| ----------------- | --------------------------- |
+| id                | identificador               |
+| client_id         | cliente da transação        |
+| gateway           | gateway utilizado           |
+| external_id       | id retornado pelo gateway   |
+| status            | status da transação         |
+| amount            | valor total                 |
+| card_last_numbers | últimos 4 dígitos do cartão |
+
+---
+
+### transaction_products
+
+Tabela pivot que relaciona produtos com transações.
+
+| campo          | descrição  |
+| -------------- | ---------- |
+| transaction_id | transação  |
+| product_id     | produto    |
+| quantity       | quantidade |
+
+---
+
+# Instalação do Projeto
+
+Clone o repositório:
+
+```
+git clone https://github.com/seuusuario/multi-gateway-api.git
+```
+
+Entre no diretório:
+
+```
+cd multi-gateway-api
+```
+
+Instale as dependências:
+
+```
+composer install
+```
+
+Configure o arquivo `.env`:
+
+```
+cp .env.example .env
+```
+
+Configure as credenciais do banco MySQL no `.env`.
+
+Exemplo:
+
+```
+DB_DATABASE=betalant
+DB_USERNAME=root
+DB_PASSWORD=senha
+```
+
+Gere a chave da aplicação:
+
+```
+php artisan key:generate
+```
+
+Execute as migrations:
+
+```
+php artisan migrate
+```
+
+Inicie o servidor:
+
+```
+php artisan serve
+```
+
+---
+
+# Executando os Gateways Mock
+
+Para rodar os gateways fornecidos no teste:
+
+```
+docker run -p 3001:3001 -p 3002:3002 matheusprotzen/gateways-mock
+```
+
+Gateway 1 ficará disponível em:
+
+```
+http://localhost:3001
+```
+
+Gateway 2 ficará disponível em:
+
+```
+http://localhost:3002
+```
+
+---
+
+# Rotas da API
+
+## Criar Produto
+
+POST
+
+```
+/api/products
+```
+
+Body:
+
+```
 {
-    "name": "Mouse Gamer",
-    "amount": 15000
+ "name": "Mouse",
+ "amount": 1000
 }
+```
 
 Resposta:
-json
 
+```
 {
-    "id": 1,
-    "name": "Mouse Gamer",
-    "amount": 15000
+ "id": 1,
+ "name": "Mouse",
+ "amount": 1000
 }
+```
 
-Campo	Tipo	Validação
-name	string	obrigatório, máximo 255
-amount	integer	obrigatório, mínimo 1 (centavos)
-💳 Compras
+---
 
-Realizar compra
-POST /api/purchase
-json
+# Realizar Compra
 
+POST
+
+```
+/api/purchase
+```
+
+Body:
+
+```
 {
-    "products": [
-        { "id": 1, "quantity": 2 },
-        { "id": 2, "quantity": 1 }
-    ],
-    "name": "João Silva",
-    "email": "joao@email.com",
-    "cardNumber": "5569000000006063",
-    "cvv": "010"
+ "products": [
+   { "id": 1, "quantity": 2 },
+   { "id": 2, "quantity": 1 }
+ ],
+ "name": "Jonatas",
+ "email": "jonatas@email.com",
+ "cardNumber": "5569000000006063",
+ "cvv": "010"
 }
+```
 
-Resposta sucesso:
-json
+Resposta:
 
+```
 {
-    "success": true,
-    "gateway": "gateway1",
-    "data": {
-        "id": "transacao_123456",
-        "status": "approved"
-    }
+ "success": true,
+ "gateway": "gateway1",
+ "data": {
+   "id": "transaction-id"
+ }
 }
+```
 
-Resposta fallback (Gateway 2):
-json
+---
 
-{
-    "success": true,
-    "gateway": "gateway2",
-    "data": {
-        "id": "transacao_789012",
-        "status": "approved"
-    }
-}
+# Fluxo de Pagamento
 
-Resposta erro:
-json
+1. Cliente envia requisição de compra
+2. Backend calcula valor total baseado nos produtos
+3. Sistema tenta processar no Gateway 1
+4. Se o Gateway 1 falhar, o sistema tenta o Gateway 2
+5. Se algum gateway aprovar a transação, a compra é registrada no banco
+6. Produtos são associados à transação
 
-{
-    "success": false,
-    "message": "Todos os gateways falharam"
-}
+---
 
-Campo	Tipo	Validação
-products	array	obrigatório, mínimo 1
-products[].id	integer	obrigatório, deve existir
-products[].quantity	integer	obrigatório, mínimo 1
-name	string	obrigatório
-email	string	obrigatório, formato email
-cardNumber	string	obrigatório, 16 dígitos
-cvv	string	obrigatório, 3-4 dígitos
-🔄 Fluxo de Pagamento
+# Testes de Fallback
 
-    Cliente envia produtos + dados do comprador
+Exemplo de teste para validar fallback entre gateways.
 
-    Sistema calcula valor total (produto × quantidade)
+Gateway 1 falha com:
 
-    Cliente é criado/recuperado pelo email
+```
+cvv = 100
+```
 
-    Tenta processar no Gateway 1
+Gateway 2 deve processar a transação.
 
-    Se falhar, tenta Gateway 2 automaticamente
+---
 
-    Se sucesso: registra transação + produtos no banco
+# Autor https://github.com/devJonatas06
 
-    Retorna resposta com gateway utilizado
-
-🧪 Testes de Fallback
-CVV	Gateway 1	Gateway 2	Resultado
-010	✅ Sucesso	-	Aprovado (Gateway 1)
-100	❌ Falha	✅ Sucesso	Aprovado (Gateway 2)
-200	❌ Falha	❌ Falha	Rejeitado
-
-Cartão válido para testes: 5569000000006063
-🔐 Autenticação dos Gateways
-
-Gateway 1: Token JWT (obtido automaticamente pelo sistema)
-
-Gateway 2: Headers fixos
-text
-
-Gateway-Auth-Token: tk_f2198cc671b5289fa856
-Gateway-Auth-Secret: 3d15e8ed6131446ea7e3456728b1211f
-
-🚀 Melhorias Futuras
-
-    Implementar autenticação JWT
-
-    CRUD completo de gateways
-
-    Endpoints de listagem e detalhes
-
-    Sistema de reembolso
-
-    Testes automatizados (PHPUnit)
-
-    Dockerizar aplicação completa
-
-📝 Autor
-
-Jonatas
-GitHub: https://github.com/devJonatas06
-Projeto desenvolvido para teste técnico BeTalent.
-
+Desenvolvido como parte de teste técnico de back-end para a empresa betalent.
